@@ -10,6 +10,8 @@ export const SHOP = [
   { id: 'back-jade', kind: 'back', name: '비취 뒷면', price: 6000, value: 'jade' },
   { id: 'av-moon', kind: 'avatar', name: '달', price: 0, value: '月' },
   { id: 'av-crane', kind: 'avatar', name: '학', price: 2000, value: '鶴' },
+  { id: 'av-granny', kind: 'avatar', name: '할매', price: 3000, value: '婆' },
+  { id: 'av-grandpa', kind: 'avatar', name: '훈장님', price: 4000, value: '翁' },
   { id: 'av-tiger', kind: 'avatar', name: '범', price: 5000, value: '虎' },
   { id: 'av-dragon', kind: 'avatar', name: '용', price: 12000, value: '龍' },
   { id: 'felt-night', kind: 'felt', name: '밤 담요', price: 8000, value: 'night' }

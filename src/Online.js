@@ -6,7 +6,9 @@ import { html, React } from './h.js';
 import { scoreOf, shakeable, REASON_TEXT } from './engine.js';
 import { sfx, buzz } from './fx.js';
 import { createApi, serverUrl } from './net.js';
-import { Board, Seat, Hand, Toasts, Modal } from './App.js';
+import { Board, Seat, Hand, Toasts, Modal, Rail, drawFly, QuickHelp } from './App.js';
+import { useMoods, charOf, rivalOf, Avatar } from './avatars.js';
+import { loadLedger } from './ledger.js';
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 const LABEL_KO = { gwang: '광', godori: '고도리!', hong: '홍단!', cheong: '청단!', cho: '초단!', omok: '오목!', chong: '총통!', tti: '띠', yeol: '열끗', pi: '피' };
@@ -24,8 +26,12 @@ export function Online(props) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [toasts, setToasts] = useState([]);
+  const [help, setHelp] = useState(false);
   const lastPlays = useRef(-1), viewRef = useRef(null), stopRef = useRef(false);
   viewRef.current = view;
+  const face = useMoods(view && view.game ? view.game : null, -1);
+  const ledger = useMemo(loadLedger, []);
+  const myChar = charOf(ledger.avatar);
 
   const toast = function (text, tone) {
     const id = Math.random();
@@ -106,7 +112,7 @@ export function Online(props) {
     (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(function () { toast('링크를 복사했어요', 'good'); }, function () { prompt('이 링크를 보내세요', link); });
   };
   const exit = function () { stopRef.current = true; try { history.replaceState(null, '', location.pathname); } catch (e) { /* 없음 */ } props.onExit(); };
-  const header = html`<header class="topbar"><button class="icon-btn" onClick=${exit} aria-label="뒤로">‹</button><div class="tb-mid"><b>친구와 링크로</b>${view ? html`<small>방 ${view.room}</small>` : null}</div><span></span></header>`;
+  const header = html`<header class="topbar"><button class="icon-btn" onClick=${exit} aria-label="뒤로">‹</button><div class="tb-mid"><b>친구와 링크로</b>${view ? html`<small>방 ${view.room}</small>` : null}</div><div class="tb-right"><button class="pill" onClick=${function () { setHelp(true); }} aria-label="규칙 도움말">?</button></div></header>`;
 
   if (!url) return html`<section class="page">${header}<div class="paper">
     <h3>아직 서버가 연결되지 않았어요</h3>
@@ -121,6 +127,7 @@ export function Online(props) {
 
   const g = view.game, seat = view.seat, spectator = seat < 0;
   if (!g) return html`<section class="page">${header}<div class="paper lobby">
+    <div class="wait-face"><${Avatar} char=${myChar} mood="wait" size="lg" /></div>
     <h3>친구를 기다리는 중</h3><p>이 링크를 보내면 누르는 순간 같은 판에서 만나요.</p>
     <p class="linkbox"><code>${link}</code></p><button class="btn primary big" onClick=${share}>링크 보내기</button></div><${Toasts} items=${toasts} /></section>`;
 
@@ -133,15 +140,18 @@ export function Online(props) {
     : g.pending ? (g.pending.player === me ? '고? 스톱?' : nm(opp) + ' 님이 고/스톱을 고르는 중…')
     : myTurn ? (sel == null ? '낼 패를 고르세요' : '빛나는 칸에 내세요') : nm(opp) + ' 님 차례 · 기다리는 중…';
   const r = g.result;
+  const chars = spectator ? ['moon', 'grandpa'] : (me === 0 ? [myChar, rivalOf(myChar)] : [rivalOf(myChar), myChar]);
+  const fly = drawFly(g, me);
   return html`<section class="game">
     ${header}
-    <${Seat} seat=${opp} top=${true} name=${nm(opp)} avatar=${opp === 0 ? '甲' : '乙'} score=${scoreOf(g, opp)} go=${g.go[opp]} shakes=${g.shaken[opp].length} active=${g.turn === opp && g.status === 'playing'} extra=${'손패 ' + g.hands[opp].length + ' · 더미 ' + g.deck.length} />
+    <${Seat} seat=${opp} top=${true} name=${nm(opp)} char=${chars[opp]} mood=${face.moods[opp]} say=${face.says[opp]} score=${scoreOf(g, opp)} go=${g.go[opp]} shakes=${g.shaken[opp].length} active=${g.turn === opp && g.status === 'playing'} fan=${g.hands[opp].length} />
     <${Board} st=${g} sel=${sel} me=${me} canPlay=${canPlay} onCell=${function (i) { if (canPlay && sel != null) send('play', { cardId: sel, cell: i }); }} />
-    <${Seat} seat=${me} name=${spectator ? nm(0) : nm(me) + ' (나)'} avatar=${me === 0 ? '甲' : '乙'} score=${scoreOf(g, me)} go=${g.go[me]} shakes=${g.shaken[me].length} active=${g.turn === me && g.status === 'playing'} />
-    <p class="status" role="status">${status}</p>
+    <${Rail} deck=${g.deck.length} flyKey=${fly.key} flyTo=${fly.to} status=${status} cue=${canPlay && sel == null} />
+    <${Seat} seat=${me} name=${spectator ? nm(0) : nm(me) + ' (나)'} char=${chars[me]} mood=${face.moods[me]} say=${face.says[me]} score=${scoreOf(g, me)} go=${g.go[me]} shakes=${g.shaken[me].length} active=${g.turn === me && g.status === 'playing'} />
     ${shakes.length ? html`<div class="shake-row">${shakes.map(function (m) { return html`<button key=${m} class="btn small gold" onClick=${function () { send('shake', { month: m }); }}>${m}월 흔들기 (이기면 ×2)</button>`; })}</div>` : null}
-    <${Hand} cards=${g.hands[me]} sel=${sel} onPick=${setSel} canPlay=${canPlay} hidden=${spectator} />
+    <${Hand} cards=${g.hands[me]} sel=${sel} onPick=${setSel} canPlay=${canPlay} hidden=${spectator} nudge=${canPlay && sel == null && g.plays < 4} />
     <${Toasts} items=${toasts} />
+    ${help ? html`<${QuickHelp} onClose=${function () { setHelp(false); }} />` : null}
     ${g.pending && g.pending.player === me && !spectator ? html`<${Modal} label="고 스톱" cls="gostop">
       <p class="big">${g.pending.score}점</p><p class="lead">더 갈까요, 멈출까요?</p>
       <p class="fine">상대 지금 ${scoreOf(g, opp).total}점 · 남은 패 ${g.deck.length}장</p>
