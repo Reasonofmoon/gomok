@@ -402,3 +402,7 @@ code { font-size: .85em; background: #efe5d2; padding: 1px 5px; border-radius: 4
 .goals .gl li.ok { color: var(--muted); text-decoration: line-through; } .goals .gl li.ok i { background: #2f7d4f; border-color: #2f7d4f; }
 .learn-note { margin-top: 8px; }
 .lc-left { gap: 12px; } .lc-left .dp-n { right: -10px; bottom: -4px; min-width: 18px; height: 18px; font-size: 10px; }
+/* 판 크기를 화면 높이에 맞춰 손패까지 한 화면에 */
+.game .board-frame { width: 100%; max-width: max(280px, calc((100dvh - 380px) / 1.22)); margin-inline: auto; box-sizing: border-box; }
+.game.learn .board-frame { max-width: max(270px, calc((100dvh - 455px) / 1.22)); }
+.game.tut .board-frame { max-width: max(280px, calc((100dvh - 360px) / 1.22)); }
