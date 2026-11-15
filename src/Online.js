@@ -9,6 +9,8 @@ import { createApi, serverUrl } from './net.js';
 import { Board, Seat, Hand, Toasts, Modal, Rail, drawFly, QuickHelp } from './App.js';
 import { useMoods, charOf, rivalOf, Avatar } from './avatars.js';
 import { loadLedger } from './ledger.js';
+import { onMove, onDecide, onEnd } from './juice.js';
+import { play } from './audio.js';
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 const LABEL_KO = { gwang: '광', godori: '고도리!', hong: '홍단!', cheong: '청단!', cho: '초단!', omok: '오목!', chong: '총통!', tti: '띠', yeol: '열끗', pi: '피' };
@@ -27,7 +29,7 @@ export function Online(props) {
   const [msg, setMsg] = useState('');
   const [toasts, setToasts] = useState([]);
   const [help, setHelp] = useState(false);
-  const lastPlays = useRef(-1), viewRef = useRef(null), stopRef = useRef(false);
+  const lastPlays = useRef(-1), viewRef = useRef(null), stopRef = useRef(false), prevRef = useRef(null);
   viewRef.current = view;
   const face = useMoods(view && view.game ? view.game : null, -1);
   const ledger = useMemo(loadLedger, []);
@@ -42,19 +44,21 @@ export function Online(props) {
   const accept = useCallback(function (d) {
     if (!d || !d.room || d.same) return;
     if (d.token) try { localStorage.setItem(tokenKey(d.room), d.token); } catch (e) { /* 없음 */ }
-    const g = d.game;
-    if (g && g.last && g.plays !== lastPlays.current && lastPlays.current >= 0) {
-      const L = g.last, mine = L.player === d.seat;
-      if (L.shake) { toast((mine ? '내' : '상대') + ' 흔들기! ' + L.shake + '월', 'gold'); sfx.go(); }
-      else {
-        sfx.slap();
-        if (L.steals.length) { toast(L.steals.length >= 3 ? '싹쓸이!' : L.steals.length === 2 ? '따닥!' : '짝!', mine ? 'good' : 'bad'); setTimeout(sfx.steal, 90); if (!mine) buzz([60, 40, 60]); }
-        if (L.gained.length) { toast(L.gained.map(function (k) { return LABEL_KO[k]; }).join(' · '), 'gold'); setTimeout(sfx.yaku, 200); }
-        if (L.go) { toast((mine ? '내가 ' : '상대 ') + L.go + '고!', 'gold'); sfx.go(); }
+    const g = d.game, prev = prevRef.current;
+    if (g && prev) {
+      const me = d.seat < 0 ? null : d.seat;
+      const jctx = { me: me, voiceOf: function (s) { return s === (me == null ? 0 : me) ? 'p' : 'o'; } };
+      const goSum = g.go[0] + g.go[1], shakeSum = g.shaken[0].length + g.shaken[1].length;
+      if (prev.game === 0 && g.plays === 0) play('deal');
+      else if (g.plays !== prev.plays || shakeSum !== prev.shakes) onMove(g, jctx);
+      else if (goSum > prev.goSum && g.last) onDecide(g, g.last.player, 'go', jctx);
+      if (g.status === 'ended' && prev.status !== 'ended') {
+        if (g.result && g.result.reason === 'stop' && g.plays === prev.plays) onDecide(g, g.result.winner, 'stop', jctx);
+        setTimeout(function () { onEnd(g, jctx); }, 900);
       }
-      if (g.status === 'ended') { if (g.result.winner === d.seat) sfx.win(); else if (g.result.winner != null) sfx.lose(); }
     }
-    if (g) lastPlays.current = g.plays;
+    if (g) { lastPlays.current = g.plays; prevRef.current = { game: 1, plays: g.plays, goSum: g.go[0] + g.go[1], shakes: g.shaken[0].length + g.shaken[1].length, status: g.status }; }
+    else prevRef.current = { game: 0, plays: -1, goSum: 0, shakes: 0, status: 'waiting' };
     setView(d);
   }, []);
 
@@ -156,7 +160,7 @@ export function Online(props) {
       <p class="big">${g.pending.score}점</p><p class="lead">더 갈까요, 멈출까요?</p>
       <p class="fine">상대 지금 ${scoreOf(g, opp).total}점 · 남은 패 ${g.deck.length}장</p>
       <div class="row"><button class="btn go" disabled=${busy} onClick=${function () { send('decide', { choice: 'go' }); }}>고!</button>
-        <button class="btn stop" disabled=${busy} onClick=${function () { sfx.stop(); send('decide', { choice: 'stop' }); }}>스톱</button></div><//>` : null}
+        <button class="btn stop" disabled=${busy} onClick=${function () { send('decide', { choice: 'stop' }); }}>스톱</button></div><//>` : null}
     ${g.status === 'ended' ? html`<${Modal} label="결과" cls=${'result ' + (r.winner === me ? 'win' : 'lose')}>
       <h2>${r.winner == null ? '나가리' : r.winner === me && !spectator ? '이겼다!' : nm(r.winner) + ' 승리'}</h2>
       ${r.winner != null ? html`<ul class="calc">${r.lines.map(function (l, k) { return html`<li key=${k}><span>${l.label}</span><b>${l.value}</b></li>`; })}</ul><p class="final">${r.final}점</p>` : null}

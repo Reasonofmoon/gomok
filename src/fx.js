@@ -28,10 +28,14 @@ export function ensureFelt() {
   document.head.appendChild(st);
 }
 
+import { play as playSample, setMuted } from './audio.js';
+
 let AC = null;
-export const sound = { muted: false };
+let _muted = false;
+/** sound.muted = true/false 로 전체 소리(샘플 엔진 포함)를 끈다. */
+export const sound = { get muted() { return _muted; }, set muted(v) { _muted = !!v; setMuted(_muted); } };
 function ctx() {
-  if (sound.muted) return null;
+  if (_muted) return null;
   try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); } catch (e) { return null; }
   return AC;
 }
@@ -53,8 +57,9 @@ function tone(freqs, dur, type) {
     o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
   });
 }
-export const sfx = {
-  slap: function () { noiseHit(1800, 0.09, 0.9); },          // 패 내리치는 "탁"
+// 샘플(ElevenLabs 효과음)이 준비돼 있으면 그걸, 아니면 아래 합성음으로.
+const synth = {
+  slap: function () { noiseHit(1800, 0.09, 0.9); },
   steal: function () { noiseHit(3200, 0.06, 0.6); setTimeout(function () { noiseHit(2600, 0.06, 0.5); }, 70); },
   yaku: function () { tone([523, 659, 784], 0.14); },
   go: function () { tone([392, 523, 659, 880], 0.12, 'square'); },
@@ -62,5 +67,16 @@ export const sfx = {
   win: function () { tone([523, 659, 784, 1047], 0.18); },
   lose: function () { tone([392, 330, 262], 0.24); },
   tick: function () { noiseHit(5000, 0.02, 0.25); }
+};
+const pick = function (o) { return o && o.cell != null ? o : (o || {}); };
+export const sfx = {
+  slap: function (o) { if (!playSample('slap' + (1 + Math.floor(Math.random() * 3)), pick(o))) synth.slap(); },
+  steal: function (o) { if (!playSample('steal', pick(o))) synth.steal(); },
+  yaku: function (o) { if (!playSample('yaku', pick(o))) synth.yaku(); },
+  go: function (o) { if (!playSample('go', pick(o))) synth.go(); },
+  stop: function (o) { if (!playSample('stop', pick(o))) synth.stop(); },
+  win: function (o) { if (!playSample('win', pick(o))) synth.win(); },
+  lose: function (o) { if (!playSample('lose', pick(o))) synth.lose(); },
+  tick: function (o) { if (!playSample('tick', Object.assign({ gain: 0.6 }, pick(o)))) synth.tick(); }
 };
 export function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) { /* 진동 없음 */ } }

@@ -10,6 +10,9 @@ import { playCard, legalCells, previewSteal, scoreOf, CENTER, GOAL } from './eng
 import { Board, Seat, Hand, Toasts, Rail, drawFly } from './App.js';
 import { Avatar, useMoods, charOf } from './avatars.js';
 import { sfx, buzz } from './fx.js';
+import { onMove, fx } from './juice.js';
+import { say } from './audio.js';
+const TCTX = { me: 0, voiceOf: function (s) { return s === 0 ? 'p' : 'o'; } };
 
 const { useState, useEffect, useLayoutEffect, useRef } = React;
 const DONE_KEY = 'gomok.tutorial.v1';
@@ -137,7 +140,7 @@ export function Tutorial(props) {
   const oppMove = function (s, id, cell, then) {
     later(function () {
       const r = playCard(s, 1, id, cell);
-      if (r.ok) { sfx.slap(); setSt(r.state); }
+      if (r.ok) { onMove(r.state, TCTX); setSt(r.state); }
       later(function () { setBusy(false); if (then) then(r.ok ? r.state : s); }, 700);
     }, 650);
   };
@@ -153,10 +156,7 @@ export function Tutorial(props) {
     if (!step.allow(i, st)) return nudge('빛나는 칸에 놓아 주세요');
     const r = playCard(st, 0, sel, i);
     if (!r.ok) return nudge();
-    sfx.slap();
-    const L = r.state.last;
-    if (L.steals.length) { toast('짝!', 'good'); later(sfx.steal, 90); buzz(40); }
-    if (L.gained.length) { toast(L.gained.indexOf('omok') >= 0 ? '오목! +3점' : '족보!', 'gold'); later(sfx.yaku, 200); }
+    onMove(r.state, TCTX);
     setSt(r.state); setSel(null); setBusy(true);
     if (step.id === 'place1') oppMove(r.state, 4, 25, function () { go(k + 1); });
     else later(function () { setBusy(false); go(k + 1); }, step.id === 'place3' ? 1300 : 800);
@@ -198,7 +198,7 @@ export function Tutorial(props) {
         <p class="coach-text">${step.text}</p>
         ${step.kind === 'info' ? html`<div class="coach-row"><button class="btn primary cta" disabled=${busy} onClick=${onCta}>${step.cta || '다음'} <span class="arr">›</span></button></div>` : null}
         ${step.kind === 'gostop' ? html`<div class="coach-gs">
-          <div class="row"><button class=${'btn go' + (gs ? '' : ' cta')} onClick=${function () { sfx.go(); setGs('go'); }}>고!</button><button class=${'btn stop' + (gs ? '' : ' cta')} onClick=${function () { sfx.stop(); setGs('stop'); }}>스톱</button></div>
+          <div class="row"><button class=${'btn go' + (gs ? '' : ' cta')} onClick=${function () { sfx.go(); say('p', 'go1'); fx({ type: 'stamp', text: '원 고', sub: '+1점', tone: 'red' }); setGs('go'); }}>고!</button><button class=${'btn stop' + (gs ? '' : ' cta')} onClick=${function () { sfx.stop(); say('p', 'stop'); fx({ type: 'stamp', text: '스톱', tone: 'ink' }); setGs('stop'); }}>스톱</button></div>
           ${gs === 'go' ? html`<p class="gs-say"><b>고!</b> 계속 쳐서 점수를 더 올려요. 1·2고는 +1점, 3고부터 두 배. 대신 상대가 먼저 나서 스톱하면 <b>고박</b>, 두 배로 물어요.</p>` : null}
           ${gs === 'stop' ? html`<p class="gs-say"><b>스톱!</b> 지금 점수로 바로 이겨요. 안전하지만 더 큰 판은 놓쳐요.</p>` : null}
           ${gs ? html`<div class="coach-row"><button class="btn primary cta" onClick=${next}>알겠어요 <span class="arr">›</span></button></div>` : null}

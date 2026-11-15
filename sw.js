@@ -4,9 +4,9 @@
  *  - 같은 출처 정적 파일과 esm.sh 모듈은 저장본 먼저(버전이 주소에 박혀 있어 내용이 안 바뀐다).
  *  - 서버(Apps Script) POST는 건드리지 않는다.
  */
-const CACHE = 'gomok-0.2.0';
+const CACHE = 'gomok-0.3.0';
 const PRE = ['./', 'index.html', 'styles.css', 'config.js', 'icon.svg', 'manifest.webmanifest',
-  'src/main.js', 'src/App.js', 'src/Online.js', 'src/h.js', 'src/hwatu.js', 'src/engine.js', 'src/ai.js', 'src/cards.js', 'src/fx.js', 'src/ledger.js', 'src/net.js', 'src/avatars.js', 'src/tutorial.js'];
+  'src/main.js', 'src/App.js', 'src/Online.js', 'src/h.js', 'src/hwatu.js', 'src/engine.js', 'src/ai.js', 'src/cards.js', 'src/fx.js', 'src/ledger.js', 'src/net.js', 'src/avatars.js', 'src/tutorial.js', 'src/audio.js', 'src/juice.js'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(PRE); }).then(function () { return self.skipWaiting(); }));

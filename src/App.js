@@ -12,6 +12,8 @@ import { ensureFelt, sfx, sound, buzz } from './fx.js';
 import { loadLedger, saveLedger, settleLedger, SHOP, STAKES, buy, equip } from './ledger.js';
 import { Online } from './Online.js';
 import { Tutorial, tutorialDone } from './tutorial.js';
+import { FxLayer, onMove, onDecide, onEnd, onStart, onThink } from './juice.js';
+import { prefs as audioPrefs, setPrefs as setAudioPrefs, unlock as unlockAudio } from './audio.js';
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 const won = function (n) { return n.toLocaleString('ko-KR') + '원'; };
@@ -177,24 +179,16 @@ function Game(props) {
     setTimeout(function () { setToasts(function (t) { return t.filter(function (x) { return x.id !== id; }); }); }, 1700);
   }, []);
 
-  const announce = useCallback(function (s) {
-    const L = s.last; if (!L) return;
-    const LABEL = { gwang: '광', godori: '고도리!', hong: '홍단!', cheong: '청단!', cho: '초단!', omok: '오목!', chong: '총통!', tti: '띠', yeol: '열끗', pi: '피' };
-    if (L.shake) { toast(names[L.player] + ' 흔들기! ' + L.shake + '월', 'gold'); sfx.go(); return; }
-    sfx.slap();
-    if (L.steals.length) { toast(L.steals.length >= 3 ? '싹쓸이!' : L.steals.length === 2 ? '따닥!' : '짝!', L.player === 0 && mode === 'cpu' ? 'good' : 'bad'); setTimeout(sfx.steal, 90); buzz(40); }
-    if (L.gained.length) { toast(L.gained.map(function (k) { return LABEL[k]; }).join(' · '), 'gold'); setTimeout(sfx.yaku, 200); }
-    if (L.lost.length) toast(names[1 - L.player] + ' ' + L.lost.map(function (k) { return LABEL[k].replace('!', ''); }).join('·') + ' 깨짐', 'bad');
-    if (L.go) { toast(names[L.player] + ' ' + L.go + '고!', 'gold'); sfx.go(); }
-  }, [toast, mode]);
-
-  const commit = useCallback(function (res) {
+  const jctx = { me: mode === 'cpu' ? 0 : null, voiceOf: function (s) { return s === 0 ? 'p' : 'o'; } };
+  const commit = useCallback(function (res, kind) {
     if (!res.ok) { toast(REASON_TEXT[res.reason] || '둘 수 없어요', 'bad'); return; }
-    announce(res.state);
+    const s = res.state;
+    if (kind && kind.decide) onDecide(s, kind.who, kind.decide, jctx); else onMove(s, jctx);
+    if (s.status === 'ended') setTimeout(function () { onEnd(s, jctx); }, kind && kind.decide ? 900 : 1100);
     setSt(res.state);
     setSel(null);
     if (mode === 'local' && res.state.status === 'playing' && !res.state.pending && res.state.turn !== (st.pending ? st.pending.player : st.turn)) setCover(true);
-  }, [announce, toast, mode, st]);
+  }, [toast, mode, st]);
 
   // 컴퓨터 차례
   useEffect(function () {
@@ -202,12 +196,12 @@ function Game(props) {
     if (st.pending && st.pending.player === 1) {
       const t = setTimeout(function () {
         const go = chooseGo(st, 1, props.level);
-        if (!go) { sfx.stop(); toast('훈장님 스톱!', 'bad'); }
-        commit(decide(st, 1, go ? 'go' : 'stop'));
+        commit(decide(st, 1, go ? 'go' : 'stop'), { decide: go ? 'go' : 'stop', who: 1 });
       }, 1100);
       return function () { clearTimeout(t); };
     }
     if (st.pending || st.turn !== 1) return;
+    if (st.plays > 2) onThink();
     const t = setTimeout(function () {
       const sh = shakeable(st, 1);
       if (sh.length && props.level !== 'easy') { commit(shake(st, 1, sh[0])); return; }
@@ -221,10 +215,7 @@ function Game(props) {
   useEffect(function () {
     if (!st || st.status !== 'ended' || settled.current) return;
     settled.current = true;
-    if (mode === 'cpu') {
-      props.onSettle(st.result);
-      if (st.result.winner === 0) sfx.win(); else if (st.result.winner === 1) sfx.lose();
-    } else sfx.win();
+    if (mode === 'cpu') props.onSettle(st.result);
   }, [st]);
 
   const hint = useMemo(function () {
@@ -232,7 +223,7 @@ function Game(props) {
     return chooseMove(st, me, 'hard', function () { return 0.5; });
   }, [hintOn, st, me, mode]);
 
-  if (!st) return html`<${PickFirst} skin=${ledger.back} oppName=${names[1]} onDone=${function (first) { settled.current = false; setSt(newGame({ first: first })); }} />`;
+  if (!st) return html`<${PickFirst} skin=${ledger.back} oppName=${names[1]} onDone=${function (first) { settled.current = false; onStart({ quiet: mode !== 'cpu' }); setSt(newGame({ first: first })); }} />`;
 
   const canPlay = st.status === 'playing' && !st.pending && !cover && (mode === 'local' || st.turn === 0);
   const myScore = scoreOf(st, me), oppScore = scoreOf(st, opp);
@@ -278,8 +269,8 @@ function Game(props) {
       <div class="gs-face"><${Avatar} char=${chars[st.pending.player]} mood="think" size="lg" /></div>
       <p class="big">${st.pending.score}점</p><p class="lead">${st.go[st.pending.player] ? '점수가 또 났어요. 더 갈까요?' : '났어요! 더 갈까요, 멈출까요?'}</p>
       <p class="fine">고: 1·2고는 +1점씩, 3고부터 두 배. 대신 상대가 먼저 나서 스톱하면 고박(두 배로 물어요).<br/>상대 지금 ${scoreOf(st, 1 - st.pending.player).total}점 · 남은 패 ${st.deck.length}장</p>
-      <div class="row"><button class="btn go" onClick=${function () { commit(decide(st, st.pending.player, 'go')); }}>고!</button>
-        <button class="btn stop" onClick=${function () { sfx.stop(); commit(decide(st, st.pending.player, 'stop')); }}>스톱</button></div>
+      <div class="row"><button class="btn go" onClick=${function () { const w = st.pending.player; commit(decide(st, w, 'go'), { decide: 'go', who: w }); }}>고!</button>
+        <button class="btn stop" onClick=${function () { const w = st.pending.player; commit(decide(st, w, 'stop'), { decide: 'stop', who: w }); }}>스톱</button></div>
     <//>` : null}
 
     ${st.status === 'ended' ? html`<${Result} st=${st} names=${names} chars=${chars} mode=${mode} ledger=${ledger} onAgain=${function () { settled.current = false; setSt(null); }} onExit=${props.onExit} />` : null}
@@ -358,6 +349,7 @@ function Home(props) {
   const L = props.ledger;
   const [level, setLevel] = useState(props.level);
   const [poke, setPoke] = useState(0);
+  const [snd, setSnd] = useState(false);
   const learned = tutorialDone();
   const POKE = ['idle', 'happy', 'smug', 'shock', 'cheer', 'think'];
   return html`<section class="home">
@@ -383,9 +375,30 @@ function Home(props) {
       <button class="btn big" onClick=${function () { props.onPlay('local', level); }}>둘이서 한 화면</button>
       <button class="btn big ghost" onClick=${function () { props.go('online'); }}>친구와 링크로</button>
       <nav class="sub"><button onClick=${props.onTutorial}>배우기</button><button onClick=${function () { props.go('rules'); }}>규칙</button><button onClick=${function () { props.go('shop'); }}>상점</button>
-        <button onClick=${props.onMute}>${props.muted ? '소리 켜기' : '소리 끄기'}</button></nav>
+        <button onClick=${function () { unlockAudio(); setSnd(true); }}>${props.muted ? '소리(꺼짐)' : '소리'}</button></nav>
     </div>
+    ${snd ? html`<${SoundSheet} muted=${props.muted} onMute=${props.onMute} onClose=${function () { setSnd(false); }} />` : null}
   </section>`;
+}
+
+function SoundSheet(props) {
+  const [p, setP] = useState(Object.assign({}, audioPrefs));
+  const tog = function (k) { const n = Object.assign({}, p); n[k] = !n[k]; setP(n); setAudioPrefs(n); sfx.tick(); };
+  const row = function (k, label, sub) {
+    return html`<button class=${'snd-row' + (p[k] ? ' on' : '')} role="switch" aria-checked=${p[k]} onClick=${function () { tog(k); }}>
+      <span><b>${label}</b><small>${sub}</small></span><i class="sw"></i></button>`;
+  };
+  return html`<${Modal} label="소리 설정" cls="sound">
+    <h2>소리</h2>
+    <div class="snd">
+      ${row('sfx', '효과음', '패 내리치기·뒤집기·북·징 (칸 위치에 따라 좌우로)')}
+      ${row('voice', '목소리', '"고도리!" "피박!" 같은 고스톱 용어 외치기')}
+      ${row('music', '배경 음악', '가야금·대금 잔잔한 음악 (목소리 나오면 줄어듦)')}
+      <label class="snd-vol"><span>전체 크기</span><input type="range" min="0" max="1" step="0.05" value=${p.vol} onInput=${function (e) { const n = Object.assign({}, p, { vol: +e.target.value }); setP(n); setAudioPrefs(n); }} /></label>
+    </div>
+    <div class="row"><button class="btn" onClick=${props.onMute}>${props.muted ? '전체 소리 켜기' : '전체 음소거'}</button><button class="btn primary" onClick=${props.onClose}>닫기</button></div>
+    <p class="fine">효과음·목소리·음악은 ElevenLabs로 만들었어요.</p>
+  <//>`;
 }
 
 export function App() {
@@ -410,5 +423,5 @@ export function App() {
   else if (screen === 'rules') body = html`<${Rules} onExit=${exit} onTutorial=${tut} />`;
   else if (screen === 'online') body = html`<${Online} onExit=${exit} />`;
   else body = html`<${Home} ledger=${ledger} level=${level} muted=${muted} onMute=${function () { setMuted(!muted); }} onLedger=${upd} go=${setScreen} onTutorial=${tut} onPlay=${play} />`;
-  return html`<${React.Fragment}><${CardDefs} />${body}<//>`;
+  return html`<${React.Fragment}><${CardDefs} />${body}<${FxLayer} /><//>`;
 }

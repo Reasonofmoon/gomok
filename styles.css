@@ -289,3 +289,49 @@ code { font-size: .85em; background: #efe5d2; padding: 1px 5px; border-radius: 4
 @keyframes coachIn { from { opacity: 0; transform: translate(-50%, -10px); } }
 @keyframes coachPop { from { opacity: 0; transform: translate(-50%, -46%) scale(.96); } }
 @media (max-height: 700px) { .av { width: 40px; height: 40px; } .rail { min-height: 50px; } .deck-pile { width: 30px; height: 46px; } .mini-fan { transform: scale(.85); } }
+
+/* ===== 0.3: 특수효과 · 소리 설정 ===== */
+.fx-layer { position: fixed; inset: 0; pointer-events: none; z-index: 80; overflow: hidden; }
+.fx-burst { position: absolute; width: 0; height: 0; }
+.fx-burst .pt { position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; border-radius: 50%; opacity: 0; animation: pt .9s cubic-bezier(.15, .7, .3, 1) forwards; box-shadow: 0 0 6px rgba(255, 220, 120, .6); }
+.fx-burst .pt.star { clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); width: 12px; height: 12px; left: -6px; top: -6px; border-radius: 0; }
+.fx-burst .pt.petal { width: 10px; height: 14px; border-radius: 80% 0 80% 0; }
+.fx-burst .pt.feather { width: 5px; height: 16px; border-radius: 50% 50% 50% 50% / 80% 80% 20% 20%; }
+.fx-burst .ring { position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; border-radius: 50%; border: 4px solid; animation: ringOut .7s ease-out forwards; }
+.fx-stamp { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%) scale(2.4) rotate(-8deg); opacity: 0; animation: stamp 1.45s cubic-bezier(.2, .9, .25, 1.2) forwards; }
+.fx-stamp .seal { position: relative; display: grid; place-items: center; min-width: 132px; padding: 12px 22px 10px; border-radius: 16px; background: #c8231c; color: #fff6dc; border: 4px solid #fff6dc;
+  box-shadow: 0 0 0 4px #c8231c, 0 14px 30px rgba(0, 0, 0, .35); text-align: center; }
+.fx-stamp .seal b { font-size: 46px; line-height: 1; font-weight: 900; letter-spacing: 2px; text-shadow: 0 3px 0 rgba(0, 0, 0, .18); white-space: nowrap; }
+.fx-stamp .seal small { display: block; margin-top: 4px; font-size: 15px; font-weight: 800; opacity: .92; }
+.fx-stamp.gold .seal { background: linear-gradient(135deg, #ffe58a, #f2b21c 55%, #c98a12); color: #3a2402; border-color: #fff8dc; box-shadow: 0 0 0 4px #c98a12, 0 0 40px rgba(255, 210, 80, .8), 0 14px 30px rgba(0, 0, 0, .3); }
+.fx-stamp.blue .seal { background: #2346a0; box-shadow: 0 0 0 4px #2346a0, 0 14px 30px rgba(0, 0, 0, .35); }
+.fx-stamp.green .seal { background: #2e7c3c; box-shadow: 0 0 0 4px #2e7c3c, 0 14px 30px rgba(0, 0, 0, .35); }
+.fx-stamp.ink .seal { background: #1b1713; box-shadow: 0 0 0 4px #1b1713, 0 14px 30px rgba(0, 0, 0, .35); }
+.fx-stamp.crack .seal { background: #6b625a; transform: rotate(4deg); box-shadow: 0 0 0 4px #6b625a, 0 14px 30px rgba(0, 0, 0, .3); }
+.fx-stamp.crack .seal b { text-decoration: line-through; text-decoration-thickness: 4px; }
+.fx-stamp.rainbow .seal { background: linear-gradient(90deg, #e23b2e, #f2b21c, #2f8f4a, #2f5fd0, #8a5cc4); background-size: 300% 100%; animation: hue 1.2s linear infinite; box-shadow: 0 0 0 4px #fff6dc, 0 0 40px rgba(255, 255, 255, .6), 0 14px 30px rgba(0, 0, 0, .3); }
+.fx-stamp .sun { position: absolute; left: 50%; top: 50%; width: 420px; height: 420px; margin: -210px 0 0 -210px; border-radius: 50%; z-index: -1;
+  background: repeating-conic-gradient(rgba(255, 215, 90, .55) 0 10deg, transparent 10deg 20deg); mask-image: radial-gradient(circle, #000 20%, transparent 68%); -webkit-mask-image: radial-gradient(circle, #000 20%, transparent 68%); animation: spin 6s linear infinite; }
+.fx-flash { position: absolute; inset: 0; animation: flash .6s ease-out forwards; }
+.fx-flash.gold { background: radial-gradient(circle at 50% 42%, rgba(255, 225, 120, .75), rgba(255, 200, 60, 0) 60%); }
+.fx-flash.red { background: radial-gradient(circle at 50% 42%, rgba(255, 90, 60, .55), rgba(200, 30, 20, 0) 62%); }
+.fx-flash.blue { background: radial-gradient(circle at 50% 42%, rgba(120, 160, 255, .55), transparent 62%); }
+.fx-flash.green, .fx-flash.ink, .fx-flash.pink { background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .6), transparent 62%); }
+.fx-rain i { position: absolute; top: -20px; width: 9px; height: 13px; border-radius: 80% 0 80% 0; opacity: .95; animation-name: fall; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes pt { 0% { transform: translate(0, 0) scale(.4) rotate(0); opacity: 1; } 70% { opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(var(--r)); opacity: 0; } }
+@keyframes ringOut { from { transform: scale(.3); opacity: .9; } to { transform: scale(2.6); opacity: 0; } }
+@keyframes stamp { 0% { transform: translate(-50%, -50%) scale(2.4) rotate(-8deg); opacity: 0; } 14% { transform: translate(-50%, -50%) scale(.92) rotate(-4deg); opacity: 1; } 22% { transform: translate(-50%, -50%) scale(1.04) rotate(-4deg); }
+  30% { transform: translate(-50%, -50%) scale(1) rotate(-4deg); } 82% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(-4deg); } 100% { opacity: 0; transform: translate(-50%, -62%) scale(.96) rotate(-4deg); } }
+@keyframes flash { from { opacity: 1; } to { opacity: 0; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes hue { to { background-position: 300% 0; } }
+@keyframes fall { 0% { transform: translate(0, 0) rotate(0); } 100% { transform: translate(var(--sw), 110vh) rotate(720deg); } }
+
+.snd { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; text-align: left; }
+.snd-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--line); background: #fff; }
+.snd-row b { display: block; font-size: 15px; } .snd-row small { color: var(--muted); font-size: 12px; }
+.snd-row .sw { flex: none; width: 44px; height: 26px; border-radius: 999px; background: #d9cfbd; position: relative; transition: background .2s; }
+.snd-row .sw::after { content: ''; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: transform .2s var(--ease); }
+.snd-row.on .sw { background: var(--seal); } .snd-row.on .sw::after { transform: translateX(18px); }
+.snd-vol { display: flex; align-items: center; gap: 12px; padding: 6px 4px; font-weight: 700; font-size: 14px; } .snd-vol input { flex: 1; accent-color: var(--seal); }
+.snd-row span { text-align: left; }
