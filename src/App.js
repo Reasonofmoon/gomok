@@ -41,13 +41,13 @@ function Chips(props) {
 /** 자리: 아바타(표정·말풍선) + 이름 + 족보 칩 + 점수. 위쪽 자리는 상대 손패를 부채꼴로 보여 준다. */
 export function Seat(props) {
   const p = props;
-  return html`<div class=${'seat ' + (p.active ? 'active ' : '') + (p.top ? 'top' : 'bottom')}>
+  return html`<div class=${'seat ' + (p.active ? 'active ' : '') + (p.top ? 'top' : 'bottom') + (p.team ? ' team-' + p.team : '')}>
     <div class="av-wrap">
       <${Avatar} char=${p.char} mood=${p.mood} seat=${p.seat} active=${p.active} />
       ${p.say ? html`<span key=${p.say.key} class="say">${p.say.text}</span>` : null}
     </div>
     <div class="seat-main">
-      <div class="seat-name">${p.name}${p.go ? html`<span class="go-badge">${p.go}고</span>` : null}${p.shakes ? html`<span class="go-badge shake">흔듦×${p.shakes}</span>` : null}</div>
+      <div class="seat-name">${p.team ? html`<span class="team-tag" title=${p.team === 'blue' ? '파란 테두리 패' : '검은 테두리 패'}>${p.tag}</span>` : null}${p.tag === p.name ? html`<span class="team-name">${p.team === 'blue' ? '파란 테두리' : '검은 테두리'}</span>` : p.name}${p.go ? html`<span class="go-badge">${p.go}고</span>` : null}${p.shakes ? html`<span class="go-badge shake">흔듦×${p.shakes}</span>` : null}</div>
       <${Chips} score=${p.score} />
     </div>
     ${p.fan != null ? html`<${MiniFan} count=${p.fan} skin=${p.skin} />` : null}
@@ -69,6 +69,8 @@ export function drawFly(st, me) {
 
 export function Board(props) {
   const st = props.st, sel = props.sel, me = props.me;
+  const blue = props.blue == null ? me : props.blue, tags = props.tags || ['나', '상'];
+  const team = function (owner) { return owner === blue ? 'tb' : 'tk'; };
   const legal = useMemo(function () { return sel != null && props.canPlay ? legalCells(st) : []; }, [st, sel, props.canPlay]);
   const lastCell = st.last && st.last.cell >= 0 ? st.last.cell : -1;
   const steals = st.last ? st.last.steals : [];
@@ -85,19 +87,20 @@ export function Board(props) {
       const st2 = isLegal ? previewSteal(st, me, sel, i).length : 0;
       const hint = props.hint && props.hint.cell === i;
       let cls = 'cell';
-      if (c) cls += ' has o' + c.owner + (c.locked ? ' locked' : '') + (i === lastCell ? ' drop' : '') + (steals.indexOf(i) >= 0 ? ' flip' : '');
+      if (c) cls += ' has o' + c.owner + ' ' + team(c.owner) + (c.locked ? ' locked' : '') + (i === lastCell ? ' drop' : '') + (steals.indexOf(i) >= 0 ? ' flip' : '');
       if (isLegal) cls += ' legal' + (st2 ? ' steal' : '');
       if (hint) cls += ' hint';
       const label = c ? CARD[c.id].label + (c.owner === me ? ' (내 패' : ' (상대 패') + (c.locked ? ', 잠김)' : ')') : isLegal ? '빈 칸, 낼 수 있음' : '빈 칸';
       return html`<button key=${i + ':' + (c ? c.id + '-' + c.owner + '-' + st.plays : 'e')} class=${cls} aria-label=${label} data-cell=${i}
         onClick=${function () { props.onCell(i); }} disabled=${!isLegal}>
         ${c ? html`<span class="plate"><${CardFace} id=${c.id} noTitle=${true} /></span>` : null}
+        ${c ? html`<span class="own" aria-hidden="true">${tags[c.owner === blue ? 0 : 1]}</span>` : null}
         ${c && c.locked ? html`<span class="knot" aria-hidden="true">結</span>` : null}
         ${st2 ? html`<span class="steal-n">짝${st2 > 1 ? ' ' + st2 : ''}</span>` : null}
       </button>`;
     })}
     <svg class="lines" viewBox=${'0 0 ' + SIZE + ' ' + SIZE} preserveAspectRatio="none" aria-hidden="true">
-      ${lines.map(function (l, k) { const a = xy(l.a), b = xy(l.b); return html`<line key=${k} class=${'five p' + l.p} x1=${a[0]} y1=${a[1]} x2=${b[0]} y2=${b[1]} />`; })}
+      ${lines.map(function (l, k) { const a = xy(l.a), b = xy(l.b); return html`<line key=${k} class=${'five p' + l.p + ' ' + team(l.p)} x1=${a[0]} y1=${a[1]} x2=${b[0]} y2=${b[1]} />`; })}
     </svg>
   </div></div>`;
 }
@@ -166,6 +169,7 @@ function Game(props) {
   const [help, setHelp] = useState(false);
   const settled = useRef(false);
   const names = mode === 'cpu' ? ['나', '훈장님'] : ['1번', '2번'];
+  const tags = mode === 'cpu' ? ['나', '훈'] : ['1', '2'];
   const chars = mode === 'cpu' ? [charOf(ledger.avatar), 'grandpa'] : [charOf(ledger.avatar), charOf(ledger.avatar) === 'granny' ? 'grandpa' : 'granny'];
   const face = useMoods(st, mode === 'cpu' ? 1 : -1);
 
@@ -249,11 +253,11 @@ function Game(props) {
         <button class=${'pill' + (hintOn ? ' on' : '')} onClick=${function () { setHintOn(!hintOn); }} aria-pressed=${hintOn} title="뭘 낼지 알려 줘요">훈수</button>
       </div>
     </header>
-    <${Seat} seat=${opp} top=${true} name=${names[opp]} char=${chars[opp]} mood=${face.moods[opp]} say=${face.says[opp]} score=${oppScore} go=${st.go[opp]} shakes=${st.shaken[opp].length}
+    <${Seat} seat=${opp} top=${true} team=${opp === 0 ? 'blue' : 'black'} tag=${tags[opp === 0 ? 0 : 1]} name=${names[opp]} char=${chars[opp]} mood=${face.moods[opp]} say=${face.says[opp]} score=${oppScore} go=${st.go[opp]} shakes=${st.shaken[opp].length}
       active=${st.turn === opp && st.status === 'playing'} fan=${st.hands[opp].length} skin=${ledger.back} />
-    <${Board} st=${st} sel=${sel} me=${me} canPlay=${canPlay} onCell=${onCell} hint=${hint} />
+    <${Board} st=${st} sel=${sel} me=${me} blue=${0} tags=${tags} canPlay=${canPlay} onCell=${onCell} hint=${hint} />
     <${Rail} deck=${st.deck.length} skin=${ledger.back} flyKey=${fly.key} flyTo=${fly.to} status=${status} cue=${canPlay && sel == null} />
-    <${Seat} seat=${me} name=${names[me]} char=${chars[me]} mood=${face.moods[me]} say=${face.says[me]} score=${myScore} go=${st.go[me]} shakes=${st.shaken[me].length} active=${st.turn === me && st.status === 'playing'} />
+    <${Seat} seat=${me} team=${me === 0 ? 'blue' : 'black'} tag=${tags[me === 0 ? 0 : 1]} name=${names[me]} char=${chars[me]} mood=${face.moods[me]} say=${face.says[me]} score=${myScore} go=${st.go[me]} shakes=${st.shaken[me].length} active=${st.turn === me && st.status === 'playing'} />
     ${shakes.length ? html`<div class="shake-row">${shakes.map(function (m) {
       return html`<button key=${m} class="btn small gold" onClick=${function () { commit(shake(st, me, m)); }}>${m}월 ${monthName(m)} 흔들기 (이기면 ×2)</button>`;
     })}</div>` : null}

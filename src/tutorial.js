@@ -47,7 +47,7 @@ const STEPS = [
   { id: 'place1', kind: 'place', pos: 'top', mood: 'idle', title: '② 첫 패는 한가운데',
     text: '첫 패는 늘 판 한가운데에 놓아요. 빛나는 가운데 칸을 누르세요.', allow: function (i) { return i === CENTER; }, targets: function () { return ['[data-cell="' + CENTER + '"]']; } },
   { id: 'adjacent', kind: 'info', pos: 'bottom', mood: 'think', title: '③ 그다음부턴 옆 칸에만',
-    text: '이제 놓인 패의 가로·세로·대각선 옆 칸에만 낼 수 있어요. 점선이 숨 쉬는 칸들이 낼 수 있는 자리예요. 방금 저도 2월 매조(새)를 옆에 냈죠.',
+    text: '이제 놓인 패의 가로·세로·대각선 옆 칸에만 낼 수 있어요. 점선이 숨 쉬는 칸들이 낼 수 있는 자리예요. 파란 테두리(나)가 내 패, 검은 테두리(훈)가 방금 제가 낸 2월 매조예요.',
     previewSel: 22, targets: function () { return ['.board']; }, cta: '알겠어요' },
   { id: 'pick2', kind: 'pick', pos: 'top', mood: 'smug', title: '④ 짝 뺏기 준비',
     text: '제 2월 매조가 보이죠? 손에도 2월 패(매화 피)가 있어요. 그 패를 눌러 고르세요.',
@@ -182,10 +182,10 @@ export function Tutorial(props) {
       <div class="tb-mid"><b>1분 배우기</b><small>${k + 1} / ${STEPS.length}</small></div>
       <div class="tb-right"><button class="pill" onClick=${skip}>건너뛰기</button></div>
     </header>
-    <${Seat} seat=${1} top=${true} name="훈장님" char="grandpa" mood=${face.moods[1]} say=${face.says[1]} score=${scoreOf(st, 1)} go=${0} shakes=${0} active=${st.turn === 1} fan=${st.hands[1].length} skin=${props.ledger.back} />
-    <${Board} st=${st} sel=${sel} me=${0} canPlay=${canPlay} onCell=${onCell} />
+    <${Seat} seat=${1} top=${true} team="black" tag="훈" name="훈장님" char="grandpa" mood=${face.moods[1]} say=${face.says[1]} score=${scoreOf(st, 1)} go=${0} shakes=${0} active=${st.turn === 1} fan=${st.hands[1].length} skin=${props.ledger.back} />
+    <${Board} st=${st} sel=${sel} me=${0} blue=${0} tags=${['나', '훈']} canPlay=${canPlay} onCell=${onCell} />
     <${Rail} deck=${st.deck.length} skin=${props.ledger.back} flyKey=${fly.key} flyTo=${fly.to} status=${status} cue=${isAct} />
-    <${Seat} seat=${0} name="나" char=${myChar} mood=${face.moods[0]} say=${face.says[0]} score=${scoreOf(st, 0)} go=${0} shakes=${0} active=${st.turn === 0} />
+    <${Seat} seat=${0} team="blue" tag="나" name="나" char=${myChar} mood=${face.moods[0]} say=${face.says[0]} score=${scoreOf(st, 0)} go=${0} shakes=${0} active=${st.turn === 0} />
     <${Hand} cards=${st.hands[0]} sel=${sel} onPick=${onPick} canPlay=${!busy} skin=${props.ledger.back} nudge=${step.kind === 'pick'} />
     <${Toasts} items=${toasts} />
 

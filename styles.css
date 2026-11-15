@@ -335,3 +335,24 @@ code { font-size: .85em; background: #efe5d2; padding: 1px 5px; border-radius: 4
 .snd-row.on .sw { background: var(--seal); } .snd-row.on .sw::after { transform: translateX(18px); }
 .snd-vol { display: flex; align-items: center; gap: 12px; padding: 6px 4px; font-weight: 700; font-size: 14px; } .snd-vol input { flex: 1; accent-color: var(--seal); }
 .snd-row span { text-align: left; }
+
+/* ===== 0.4: 내 패 / 상대 패 구분(팀 색) ===== */
+:root { --team-b: #1f5fe0; --team-b2: #6fa0ff; --team-k: #1b1713; --team-k2: #6b625a; }
+.cell.tb .plate { background: linear-gradient(160deg, #3b7bff, #1745b8); box-shadow: 0 0 0 2px #cfe0ff, 0 3px 6px rgba(0, 20, 80, .45); }
+.cell.tk .plate { background: linear-gradient(160deg, #3a332d, #0f0c0a); box-shadow: 0 0 0 2px #8c8278, 0 3px 6px rgba(0, 0, 0, .5); }
+.cell.tb.locked .plate { box-shadow: 0 0 0 2px #cfe0ff, 0 0 0 4px var(--gold), 0 3px 6px rgba(0, 20, 80, .45); }
+.cell.tk.locked .plate { box-shadow: 0 0 0 2px #8c8278, 0 0 0 4px var(--gold), 0 3px 6px rgba(0, 0, 0, .5); }
+.cell .own { position: absolute; left: -3px; top: -4px; z-index: 3; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 999px; font-size: 9.5px; font-weight: 900; line-height: 16px; text-align: center; color: #fff; pointer-events: none; box-shadow: 0 1px 2px rgba(0, 0, 0, .4); }
+.cell.tb .own { background: var(--team-b); border: 1.5px solid #fff; }
+.cell.tk .own { background: var(--team-k); border: 1.5px solid #d8cfc2; }
+.five.tb { stroke: #9cc2ff; } .five.tk { stroke: #ffcf8a; }
+.seat.team-blue { border-left: 4px solid var(--team-b); }
+.seat.team-black { border-left: 4px solid var(--team-k); }
+.seat.team-blue .av { box-shadow: 0 0 0 2px #fbf3df, 0 0 0 3.5px var(--team-b); }
+.seat.team-black .av { box-shadow: 0 0 0 2px #fbf3df, 0 0 0 3.5px var(--team-k); }
+.seat.team-blue .av.on, .seat.team-black .av.on { box-shadow: 0 0 0 2px #fbf3df, 0 0 0 3.5px var(--gold), 0 0 12px rgba(216, 166, 58, .7); }
+.team-tag { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; font-size: 10.5px; font-weight: 900; color: #fff; }
+.team-blue .team-tag { background: var(--team-b); } .team-black .team-tag { background: var(--team-k); }
+.team-blue .seat-score b { color: var(--team-b); }
+.seat.team-blue.hot .seat-score b, .team-blue .seat-score.hot b { color: var(--seal); }
+.team-name { font-weight: 700; font-size: 12px; color: var(--muted); }

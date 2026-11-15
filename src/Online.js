@@ -146,12 +146,13 @@ export function Online(props) {
   const r = g.result;
   const chars = spectator ? ['moon', 'grandpa'] : (me === 0 ? [myChar, rivalOf(myChar)] : [rivalOf(myChar), myChar]);
   const fly = drawFly(g, me);
+  const tags = spectator ? [nm(0).slice(0, 1), nm(1).slice(0, 1)] : ['나', nm(opp).slice(0, 1)];
   return html`<section class="game">
     ${header}
-    <${Seat} seat=${opp} top=${true} name=${nm(opp)} char=${chars[opp]} mood=${face.moods[opp]} say=${face.says[opp]} score=${scoreOf(g, opp)} go=${g.go[opp]} shakes=${g.shaken[opp].length} active=${g.turn === opp && g.status === 'playing'} fan=${g.hands[opp].length} />
-    <${Board} st=${g} sel=${sel} me=${me} canPlay=${canPlay} onCell=${function (i) { if (canPlay && sel != null) send('play', { cardId: sel, cell: i }); }} />
+    <${Seat} seat=${opp} top=${true} team="black" tag=${tags[1]} name=${nm(opp)} char=${chars[opp]} mood=${face.moods[opp]} say=${face.says[opp]} score=${scoreOf(g, opp)} go=${g.go[opp]} shakes=${g.shaken[opp].length} active=${g.turn === opp && g.status === 'playing'} fan=${g.hands[opp].length} />
+    <${Board} st=${g} sel=${sel} me=${me} blue=${me} tags=${tags} canPlay=${canPlay} onCell=${function (i) { if (canPlay && sel != null) send('play', { cardId: sel, cell: i }); }} />
     <${Rail} deck=${g.deck.length} flyKey=${fly.key} flyTo=${fly.to} status=${status} cue=${canPlay && sel == null} />
-    <${Seat} seat=${me} name=${spectator ? nm(0) : nm(me) + ' (나)'} char=${chars[me]} mood=${face.moods[me]} say=${face.says[me]} score=${scoreOf(g, me)} go=${g.go[me]} shakes=${g.shaken[me].length} active=${g.turn === me && g.status === 'playing'} />
+    <${Seat} seat=${me} team="blue" tag=${tags[0]} name=${spectator ? nm(0) : nm(me) + ' (나)'} char=${chars[me]} mood=${face.moods[me]} say=${face.says[me]} score=${scoreOf(g, me)} go=${g.go[me]} shakes=${g.shaken[me].length} active=${g.turn === me && g.status === 'playing'} />
     ${shakes.length ? html`<div class="shake-row">${shakes.map(function (m) { return html`<button key=${m} class="btn small gold" onClick=${function () { send('shake', { month: m }); }}>${m}월 흔들기 (이기면 ×2)</button>`; })}</div>` : null}
     <${Hand} cards=${g.hands[me]} sel=${sel} onPick=${setSel} canPlay=${canPlay} hidden=${spectator} nudge=${canPlay && sel == null && g.plays < 4} />
     <${Toasts} items=${toasts} />

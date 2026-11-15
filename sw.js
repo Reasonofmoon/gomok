@@ -5,7 +5,7 @@
  *  - 미리 받을 때는 브라우저 HTTP 캐시를 건너뛴다(cache: 'reload') — 낡은 파일이 저장본에 섞이지 않게.
  *  - 서버(Apps Script) POST는 건드리지 않는다.
  */
-const CACHE = 'gomok-0.3.1';
+const CACHE = 'gomok-0.4.0';
 const PRE = ['./', 'index.html', 'styles.css', 'config.js', 'icon.svg', 'manifest.webmanifest',
   'src/main.js', 'src/App.js', 'src/Online.js', 'src/h.js', 'src/hwatu.js', 'src/engine.js', 'src/ai.js', 'src/cards.js', 'src/fx.js', 'src/ledger.js', 'src/net.js',
   'src/avatars.js', 'src/tutorial.js', 'src/audio.js', 'src/juice.js'];
