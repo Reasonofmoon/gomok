@@ -363,7 +363,7 @@ code { font-size: .85em; background: #efe5d2; padding: 1px 5px; border-radius: 4
 .learn-btn small { display: block; margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
 .pill.goal { background: #e9f1ff; border-color: var(--team-b); color: var(--team-b); }
 .game.learn { gap: 4px; }
-.game.learn .board-frame { margin: 0 6px; }
+.game.learn .board-frame { margin: 0 auto; }
 .flow { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; padding: 1px 0 2px; }
 .flow .fl { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; color: var(--muted); background: #ece3d1; border-radius: 999px; padding: 3px 9px 3px 4px; transition: background .2s, color .2s; }
 .flow .fl b { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; background: #d9cfbd; color: #fff; font-size: 10.5px; }
