@@ -74,7 +74,7 @@ const STEPS = [
   { id: 'gostop', kind: 'gostop', pos: 'center', mood: 'think', title: '⑨ ' + GOAL + '점이 넘으면 고? 스톱?',
     text: '점수가 ' + GOAL + '점을 넘는 순간 골라야 해요. 둘 중 하나를 눌러 보세요.' },
   { id: 'done', kind: 'done', pos: 'center', mood: 'cheer', title: '다 배웠어요!',
-    text: '내기 → 짝 뺏기 → 잠금 → 족보·오목 → 고/스톱. 이제 순한 맛 훈장님과 진짜 한 판 해 볼까요?' }
+    text: '내기 → 짝 뺏기 → 잠금 → 족보·오목 → 고/스톱. 이제 제가 매 수 풀어 드리는 학습 모드로 진짜 한 판 해 볼까요?' }
 ];
 
 /** 지금 눌러야 할 곳만 밝히는 조명 + 물결. */
@@ -204,7 +204,7 @@ export function Tutorial(props) {
           ${gs ? html`<div class="coach-row"><button class="btn primary cta" onClick=${next}>알겠어요 <span class="arr">›</span></button></div>` : null}
         </div>` : null}
         ${step.kind === 'done' ? html`<div class="coach-row col">
-          <button class="btn primary big cta" onClick=${function () { props.onPlay('cpu', 'easy'); }}>훈장님과 한 판 <span class="arr">›</span></button>
+          <button class="btn primary big cta" onClick=${function () { props.onPlay('learn', 'easy'); }}>학습 모드로 한 판 <span class="arr">›</span></button>
           <button class="btn" onClick=${props.onExit}>처음 화면으로</button></div>` : null}
         <div class="dots" aria-hidden="true">${STEPS.map(function (_, i) { return html`<i key=${i} class=${i < k ? 'done' : i === k ? 'now' : ''}></i>`; })}</div>
       </div>

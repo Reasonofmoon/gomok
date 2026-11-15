@@ -12,6 +12,7 @@ import { ensureFelt, sfx, sound, buzz } from './fx.js';
 import { loadLedger, saveLedger, settleLedger, SHOP, STAKES, buy, equip } from './ledger.js';
 import { Online } from './Online.js';
 import { Tutorial, tutorialDone } from './tutorial.js';
+import { FlowBar, LearnCoach, ChipInfo, GoalSheet, guidance, explainLast, goalsFrom, loadGoals, saveGoals, GOALS } from './learn.js';
 import { FxLayer, onMove, onDecide, onEnd, onStart, onThink } from './juice.js';
 import { prefs as audioPrefs, setPrefs as setAudioPrefs, unlock as unlockAudio } from './audio.js';
 
@@ -34,6 +35,7 @@ function Chips(props) {
     const near = !it.pts && !it.blocked && it.have === it.need - 1;
     const cls = 'chip' + (it.pts ? ' on' : '') + (near ? ' near' : '') + (it.blocked && !it.pts ? ' dead' : '');
     const txt = it.pts ? it.label + (it.count > 1 ? '×' + it.count : '') + ' ' + it.pts + '점' : it.label + ' ' + it.have + '/' + it.need;
+    if (props.onChip) return html`<button key=${it.key} class=${cls + ' tap'} onClick=${function () { props.onChip(it.key); }} title=${it.label + ' 설명 보기'}>${txt}</button>`;
     return html`<span key=${it.key} class=${cls} title=${it.blocked ? '상대가 잠가서 막혔어요' : ''}>${txt}</span>`;
   }) : html`<span class="chip ghost">아직 족보 없음</span>`}</div>`;
 }
@@ -48,7 +50,7 @@ export function Seat(props) {
     </div>
     <div class="seat-main">
       <div class="seat-name">${p.team ? html`<span class="team-tag" title=${p.team === 'blue' ? '파란 테두리 패' : '검은 테두리 패'}>${p.tag}</span>` : null}${p.tag === p.name ? html`<span class="team-name">${p.team === 'blue' ? '파란 테두리' : '검은 테두리'}</span>` : p.name}${p.go ? html`<span class="go-badge">${p.go}고</span>` : null}${p.shakes ? html`<span class="go-badge shake">흔듦×${p.shakes}</span>` : null}</div>
-      <${Chips} score=${p.score} />
+      <${Chips} score=${p.score} onChip=${p.onChip} />
     </div>
     ${p.fan != null ? html`<${MiniFan} count=${p.fan} skin=${p.skin} />` : null}
     <div class=${'seat-score' + (p.score.total >= GOAL ? ' hot' : '')}><b>${p.score.total}</b><small>점</small></div>
@@ -90,6 +92,8 @@ export function Board(props) {
       if (c) cls += ' has o' + c.owner + ' ' + team(c.owner) + (c.locked ? ' locked' : '') + (i === lastCell ? ' drop' : '') + (steals.indexOf(i) >= 0 ? ' flip' : '');
       if (isLegal) cls += ' legal' + (st2 ? ' steal' : '');
       if (hint) cls += ' hint';
+      if (props.marks && props.marks.threat.indexOf(i) >= 0) cls += ' threat';
+      if (props.marks && props.marks.chance.indexOf(i) >= 0) cls += ' chance';
       const label = c ? CARD[c.id].label + (c.owner === me ? ' (내 패' : ' (상대 패') + (c.locked ? ', 잠김)' : ')') : isLegal ? '빈 칸, 낼 수 있음' : '빈 칸';
       return html`<button key=${i + ':' + (c ? c.id + '-' + c.owner + '-' + st.plays : 'e')} class=${cls} aria-label=${label} data-cell=${i}
         onClick=${function () { props.onCell(i); }} disabled=${!isLegal}>
@@ -165,13 +169,19 @@ function Game(props) {
   const [sel, setSel] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [cover, setCover] = useState(false);
-  const [hintOn, setHintOn] = useState(false);
+  const learn = mode === 'learn', vsCpu = mode === 'cpu' || learn;
+  const [hintOn, setHintOn] = useState(learn);
+  const [ev, setEv] = useState(null);
+  const [chip, setChip] = useState(null);
+  const [goalOpen, setGoalOpen] = useState(false);
+  const [goals, setGoals] = useState(loadGoals);
+  const evTimer = useRef(null);
   const [help, setHelp] = useState(false);
   const settled = useRef(false);
-  const names = mode === 'cpu' ? ['나', '훈장님'] : ['1번', '2번'];
-  const tags = mode === 'cpu' ? ['나', '훈'] : ['1', '2'];
-  const chars = mode === 'cpu' ? [charOf(ledger.avatar), 'grandpa'] : [charOf(ledger.avatar), charOf(ledger.avatar) === 'granny' ? 'grandpa' : 'granny'];
-  const face = useMoods(st, mode === 'cpu' ? 1 : -1);
+  const names = vsCpu ? ['나', '훈장님'] : ['1번', '2번'];
+  const tags = vsCpu ? ['나', '훈'] : ['1', '2'];
+  const chars = vsCpu ? [charOf(ledger.avatar), 'grandpa'] : [charOf(ledger.avatar), charOf(ledger.avatar) === 'granny' ? 'grandpa' : 'granny'];
+  const face = useMoods(st, vsCpu ? 1 : -1);
 
   // 한 화면 둘이서: 아래쪽은 지금 차례인 사람
   const me = !st ? 0 : mode === 'local' ? (st.pending ? st.pending.player : st.turn) : 0;
@@ -183,12 +193,20 @@ function Game(props) {
     setTimeout(function () { setToasts(function (t) { return t.filter(function (x) { return x.id !== id; }); }); }, 1700);
   }, []);
 
-  const jctx = { me: mode === 'cpu' ? 0 : null, voiceOf: function (s) { return s === 0 ? 'p' : 'o'; } };
+  const jctx = { me: vsCpu ? 0 : null, voiceOf: function (s) { return s === 0 ? 'p' : 'o'; } };
   const commit = useCallback(function (res, kind) {
     if (!res.ok) { toast(REASON_TEXT[res.reason] || '둘 수 없어요', 'bad'); return; }
     const s = res.state;
     if (kind && kind.decide) onDecide(s, kind.who, kind.decide, jctx); else onMove(s, jctx);
     if (s.status === 'ended') setTimeout(function () { onEnd(s, jctx); }, kind && kind.decide ? 900 : 1100);
+    if (learn) {
+      const e = kind && kind.decide === 'stop' ? null : explainLast(s, 0, names);
+      clearTimeout(evTimer.current); setEv(e);
+      if (e) evTimer.current = setTimeout(function () { setEv(null); }, e.mine ? 5200 : 7000);
+      const got = goalsFrom(s, 0, kind).filter(function (g) { return !goals[g]; });
+      if (got.length) { const n = Object.assign({}, goals); got.forEach(function (g) { n[g] = true; }); setGoals(n); saveGoals(n);
+        got.forEach(function (g, i) { setTimeout(function () { toast('목표 달성: ' + GOALS.find(function (x) { return x.id === g; }).text, 'good'); }, 1700 + i * 1100); }); }
+    }
     setSt(res.state);
     setSel(null);
     if (mode === 'local' && res.state.status === 'playing' && !res.state.pending && res.state.turn !== (st.pending ? st.pending.player : st.turn)) setCover(true);
@@ -196,12 +214,12 @@ function Game(props) {
 
   // 컴퓨터 차례
   useEffect(function () {
-    if (!st || mode !== 'cpu' || st.status !== 'playing') return;
+    if (!st || !vsCpu || st.status !== 'playing') return;
     if (st.pending && st.pending.player === 1) {
       const t = setTimeout(function () {
         const go = chooseGo(st, 1, props.level);
         commit(decide(st, 1, go ? 'go' : 'stop'), { decide: go ? 'go' : 'stop', who: 1 });
-      }, 1100);
+      }, learn ? 2600 : 1100);
       return function () { clearTimeout(t); };
     }
     if (st.pending || st.turn !== 1) return;
@@ -211,7 +229,7 @@ function Game(props) {
       if (sh.length && props.level !== 'easy') { commit(shake(st, 1, sh[0])); return; }
       const mv = chooseMove(st, 1, props.level);
       if (mv) commit(playCard(st, 1, mv.id, mv.cell));
-    }, 900);
+    }, learn ? 3000 : 900);
     return function () { clearTimeout(t); };
   }, [st, mode, props.level, commit, toast]);
 
@@ -220,14 +238,15 @@ function Game(props) {
     if (!st || st.status !== 'ended' || settled.current) return;
     settled.current = true;
     if (mode === 'cpu') props.onSettle(st.result);
+    if (learn) setHintOn(true);
   }, [st]);
 
   const hint = useMemo(function () {
-    if (!hintOn || !st || st.status !== 'playing' || st.pending || st.turn !== me || (mode === 'cpu' && me !== 0)) return null;
+    if (!hintOn || !st || st.status !== 'playing' || st.pending || st.turn !== me || (vsCpu && me !== 0)) return null;
     return chooseMove(st, me, 'hard', function () { return 0.5; });
   }, [hintOn, st, me, mode]);
 
-  if (!st) return html`<${PickFirst} skin=${ledger.back} oppName=${names[1]} onDone=${function (first) { settled.current = false; onStart({ quiet: mode !== 'cpu' }); setSt(newGame({ first: first })); }} />`;
+  if (!st) return html`<${PickFirst} skin=${ledger.back} oppName=${names[1]} onDone=${function (first) { settled.current = false; onStart({ quiet: !vsCpu }); setSt(newGame({ first: first })); }} />`;
 
   const canPlay = st.status === 'playing' && !st.pending && !cover && (mode === 'local' || st.turn === 0);
   const myScore = scoreOf(st, me), oppScore = scoreOf(st, opp);
@@ -237,33 +256,42 @@ function Game(props) {
   };
   const shakes = canPlay ? shakeable(st, me) : [];
   const status = st.status === 'ended' ? '판이 끝났어요'
-    : st.pending ? (mode === 'cpu' && st.pending.player === 1 ? '훈장님이 고/스톱을 고르는 중…' : '고? 스톱?')
-    : mode === 'cpu' && st.turn === 1 ? '훈장님이 생각 중…'
+    : st.pending ? (vsCpu && st.pending.player === 1 ? '훈장님이 고/스톱을 고르는 중…' : '고? 스톱?')
+    : vsCpu && st.turn === 1 ? '훈장님이 생각 중…'
     : sel == null ? (st.plays === 0 ? '아래 패를 눌러 고른 뒤 가운데에 내세요' : '낼 패를 눌러 고르세요') : '빛나는 칸에 내세요 · "짝" 칸은 상대 패를 뺏어요';
   const myHand = st.hands[me];
   const fly = drawFly(st, me);
+  const g = learn ? guidance(st, 0, sel, hint, names) : null;
+  const pick = function (id) { if (learn) { clearTimeout(evTimer.current); setEv(null); } setSel(id); };
+  const phase = !learn ? 0 : ev ? 2 : g.phase;
 
-  return html`<section class=${'game felt-' + ledger.felt}>
+  return html`<section class=${'game felt-' + ledger.felt + (learn ? ' learn' : '')}>
     <header class="topbar">
       <button class="icon-btn" onClick=${props.onExit} aria-label="나가기">‹</button>
-      <div class="tb-mid"><b>${mode === 'cpu' ? '훈장님(' + LEVEL_KO[props.level] + ')과 한 판' : '둘이서 한 화면'}</b>
+      <div class="tb-mid"><b>${learn ? '학습 모드' : mode === 'cpu' ? '훈장님(' + LEVEL_KO[props.level] + ')과 한 판' : '둘이서 한 화면'}</b>${learn ? html`<small>돈은 오가지 않아요</small>` : null}
         ${mode === 'cpu' ? html`<small>점당 ${won(ledger.stake)}${ledger.carry > 1 ? ' · 나가리 ×' + ledger.carry : ''}</small>` : null}</div>
       <div class="tb-right">
+        ${learn ? html`<button class="pill goal" onClick=${function () { setGoalOpen(true); }}>목표 ${GOALS.filter(function (x) { return goals[x.id]; }).length}/${GOALS.length}</button>` : null}
         <button class="pill" onClick=${function () { setHelp(true); }} aria-label="규칙 도움말">?</button>
         <button class=${'pill' + (hintOn ? ' on' : '')} onClick=${function () { setHintOn(!hintOn); }} aria-pressed=${hintOn} title="뭘 낼지 알려 줘요">훈수</button>
       </div>
     </header>
     <${Seat} seat=${opp} top=${true} team=${opp === 0 ? 'blue' : 'black'} tag=${tags[opp === 0 ? 0 : 1]} name=${names[opp]} char=${chars[opp]} mood=${face.moods[opp]} say=${face.says[opp]} score=${oppScore} go=${st.go[opp]} shakes=${st.shaken[opp].length}
       active=${st.turn === opp && st.status === 'playing'} fan=${st.hands[opp].length} skin=${ledger.back} />
-    <${Board} st=${st} sel=${sel} me=${me} blue=${0} tags=${tags} canPlay=${canPlay} onCell=${onCell} hint=${hint} />
-    <${Rail} deck=${st.deck.length} skin=${ledger.back} flyKey=${fly.key} flyTo=${fly.to} status=${status} cue=${canPlay && sel == null} />
-    <${Seat} seat=${me} team=${me === 0 ? 'blue' : 'black'} tag=${tags[me === 0 ? 0 : 1]} name=${names[me]} char=${chars[me]} mood=${face.moods[me]} say=${face.says[me]} score=${myScore} go=${st.go[me]} shakes=${st.shaken[me].length} active=${st.turn === me && st.status === 'playing'} />
+    ${learn ? html`<${FlowBar} phase=${phase} />` : null}
+    <${Board} st=${st} sel=${sel} me=${me} blue=${0} tags=${tags} canPlay=${canPlay} onCell=${onCell} hint=${hint} marks=${learn && !ev ? g.marks : null} />
+    ${learn ? html`<${LearnCoach} g=${g} event=${ev} onDismiss=${function () { clearTimeout(evTimer.current); setEv(null); }}
+      deck=${html`<${DeckPile} count=${st.deck.length} skin=${ledger.back} flyKey=${fly.key} flyTo=${fly.to} />`} />`
+      : html`<${Rail} deck=${st.deck.length} skin=${ledger.back} flyKey=${fly.key} flyTo=${fly.to} status=${status} cue=${canPlay && sel == null} />`}
+    <${Seat} seat=${me} team=${me === 0 ? 'blue' : 'black'} tag=${tags[me === 0 ? 0 : 1]} onChip=${learn ? setChip : null} name=${names[me]} char=${chars[me]} mood=${face.moods[me]} say=${face.says[me]} score=${myScore} go=${st.go[me]} shakes=${st.shaken[me].length} active=${st.turn === me && st.status === 'playing'} />
     ${shakes.length ? html`<div class="shake-row">${shakes.map(function (m) {
       return html`<button key=${m} class="btn small gold" onClick=${function () { commit(shake(st, me, m)); }}>${m}월 ${monthName(m)} 흔들기 (이기면 ×2)</button>`;
     })}</div>` : null}
-    <${Hand} cards=${myHand} sel=${sel} onPick=${setSel} canPlay=${canPlay} hint=${hint} hidden=${cover} skin=${ledger.back} nudge=${canPlay && sel == null && st.plays < 4} />
+    <${Hand} cards=${myHand} sel=${sel} onPick=${pick} canPlay=${canPlay} hint=${hint} hidden=${cover} skin=${ledger.back} nudge=${canPlay && sel == null && st.plays < 4} />
     <${Toasts} items=${toasts} />
 
+    ${chip ? html`<${ChipInfo} k=${chip} st=${st} me=${0} onClose=${function () { setChip(null); }} />` : null}
+    ${goalOpen ? html`<${GoalSheet} goals=${goals} onClose=${function () { setGoalOpen(false); }} />` : null}
     ${help ? html`<${QuickHelp} onClose=${function () { setHelp(false); }} onTutorial=${props.onTutorial} />` : null}
 
     ${cover ? html`<${Modal} label="차례 넘기기" cls="cover"><h2>${names[st.turn]} 차례</h2><p class="lead">상대에게 화면이 안 보이게 넘긴 뒤 누르세요.</p>
@@ -375,6 +403,7 @@ function Home(props) {
         return html`<button key=${s} role="radio" aria-checked=${L.stake === s} class=${L.stake === s ? 'on' : ''} disabled=${s * 20 > L.money}
           onClick=${function () { props.onLedger(Object.assign({}, L, { stake: s })); }}>${s >= 1000 ? s / 1000 + '천' : s}</button>`;
       })}</div>
+      <button class="btn big learn-btn" onClick=${function () { props.onPlay('learn', 'easy'); }}><span class="lb-tag">학습 모드</span>설명 보며 한 판<small>훈장님이 매 수 풀어 주고 추천해줘요 · 돈 안 걸려요</small></button>
       <button class=${'btn primary big' + (learned ? ' cta' : '')} onClick=${function () { props.onPlay('cpu', level); }}>훈장님과 한 판</button>
       <button class="btn big" onClick=${function () { props.onPlay('local', level); }}>둘이서 한 화면</button>
       <button class="btn big ghost" onClick=${function () { props.go('online'); }}>친구와 링크로</button>
