@@ -1,0 +1,15 @@
+{
+  "id": "./",
+  "name": "고목 GO·MOK",
+  "short_name": "고목",
+  "description": "오목판 위에서 치는 고스톱",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f3ebdc",
+  "theme_color": "#f3ebdc",
+  "categories": ["games"],
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
